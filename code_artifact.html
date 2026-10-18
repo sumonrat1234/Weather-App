@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบอุณหภูมิและสภาพอากาศ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background: linear-gradient(135deg, #74ebd5 0%, #9face6 100%);
+            min-height: 100vh;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        /* Custom scrollbar for forecast */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="text-gray-800 flex items-center justify-center p-4">
+
+    <div class="glass-panel w-full max-w-md rounded-3xl p-6 shadow-2xl relative overflow-hidden transition-all duration-500">
+        
+        <!-- Header & Search -->
+        <div class="relative z-10 mb-6">
+            <h1 class="text-2xl font-bold text-center text-gray-900 mb-4 tracking-wide"><i class="fa-solid fa-cloud-sun-rain mr-2 text-blue-600"></i>สภาพอากาศ</h1>
+            <form id="searchForm" class="flex gap-2">
+                <input type="text" id="cityInput" placeholder="ค้นหาจังหวัดหรือเมือง..." 
+                    class="w-full px-4 py-3 rounded-xl bg-white/50 border border-white/40 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white/80 transition-all placeholder-gray-500 text-gray-800 shadow-inner">
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl transition-colors shadow-lg hover:shadow-xl flex items-center justify-center">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            </form>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="hidden flex-col items-center justify-center py-10 z-10 relative">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mb-3"></div>
+            <p class="text-gray-700 font-medium">กำลังโหลดข้อมูล...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="errorState" class="hidden flex-col items-center justify-center py-8 z-10 relative bg-red-100/50 rounded-2xl border border-red-200">
+            <i class="fa-solid fa-triangle-exclamation text-4xl text-red-500 mb-2"></i>
+            <p id="errorMessage" class="text-red-700 text-center font-medium px-4">ไม่พบข้อมูลเมืองนี้</p>
+        </div>
+
+        <!-- Weather Content -->
+        <div id="weatherContent" class="z-10 relative">
+            <!-- Current Weather -->
+            <div class="text-center mb-8">
+                <h2 id="cityName" class="text-3xl font-bold text-gray-900 mb-1">ขอนแก่น</h2>
+                <p id="dateInfo" class="text-sm text-gray-700 mb-4">วันอาทิตย์, 18 ตุลาคม</p>
+                
+                <div class="flex items-center justify-center gap-4 mb-2">
+                    <div id="weatherIcon" class="text-7xl text-yellow-400 drop-shadow-md">
+                        <i class="fa-solid fa-sun"></i>
+                    </div>
+                    <div class="text-left">
+                        <div class="flex items-start">
+                            <span id="temperature" class="text-6xl font-bold text-gray-900 tracking-tighter">34</span>
+                            <span class="text-2xl font-bold text-gray-800 mt-2">°C</span>
+                        </div>
+                    </div>
+                </div>
+                <p id="weatherDesc" class="text-xl font-medium text-gray-800 capitalize">ท้องฟ้าโปร่ง</p>
+            </div>
+
+            <!-- Details Grid -->
+            <div class="grid grid-cols-3 gap-3 mb-8">
+                <div class="bg-white/40 rounded-2xl p-3 text-center shadow-sm border border-white/30">
+                    <i class="fa-solid fa-temperature-half text-orange-500 text-xl mb-1"></i>
+                    <p class="text-xs text-gray-600 mb-1">รู้สึกเหมือน</p>
+                    <p id="feelsLike" class="font-bold text-gray-900 text-lg">39°C</p>
+                </div>
+                <div class="bg-white/40 rounded-2xl p-3 text-center shadow-sm border border-white/30">
+                    <i class="fa-solid fa-droplet text-blue-500 text-xl mb-1"></i>
+                    <p class="text-xs text-gray-600 mb-1">ความชื้น</p>
+                    <p id="humidity" class="font-bold text-gray-900 text-lg">55%</p>
+                </div>
+                <div class="bg-white/40 rounded-2xl p-3 text-center shadow-sm border border-white/30">
+                    <i class="fa-solid fa-wind text-teal-500 text-xl mb-1"></i>
+                    <p class="text-xs text-gray-600 mb-1">ความเร็วลม</p>
+                    <p id="windSpeed" class="font-bold text-gray-900 text-lg">12 กม./ชม.</p>
+                </div>
+            </div>
+
+            <!-- 7 Days Forecast -->
+            <div>
+                <h3 class="text-lg font-bold text-gray-900 mb-3 flex items-center"><i class="fa-regular fa-calendar-days mr-2"></i>พยากรณ์ล่วงหน้า 7 วัน</h3>
+                <div id="forecastContainer" class="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
+                    <!-- Forecast items will be injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const searchForm = document.getElementById('searchForm');
+        const cityInput = document.getElementById('cityInput');
+        const weatherContent = document.getElementById('weatherContent');
+        const loadingState = document.getElementById('loadingState');
+        const errorState = document.getElementById('errorState');
+        const errorMessage = document.getElementById('errorMessage');
+        const forecastContainer = document.getElementById('forecastContainer');
+
+        // WMO Weather interpretation codes
+        const weatherCodes = {
+            0: { desc: 'ท้องฟ้าโปร่ง', icon: 'fa-sun', color: 'text-yellow-400' },
+            1: { desc: 'มีเมฆส่วนใหญ่', icon: 'fa-cloud-sun', color: 'text-yellow-500' },
+            2: { desc: 'มีเมฆบางส่วน', icon: 'fa-cloud', color: 'text-gray-400' },
+            3: { desc: 'มืดครึ้ม', icon: 'fa-cloud', color: 'text-gray-500' },
+            45: { desc: 'มีหมอก', icon: 'fa-smog', color: 'text-gray-400' },
+            48: { desc: 'หมอกลงจัด', icon: 'fa-smog', color: 'text-gray-500' },
+            51: { desc: 'ฝนปรอยๆ เบาบาง', icon: 'fa-cloud-rain', color: 'text-blue-400' },
+            53: { desc: 'ฝนปรอยๆ ปานกลาง', icon: 'fa-cloud-rain', color: 'text-blue-500' },
+            55: { desc: 'ฝนปรอยๆ หนัก', icon: 'fa-cloud-showers-heavy', color: 'text-blue-600' },
+            61: { desc: 'ฝนตกเล็กน้อย', icon: 'fa-cloud-rain', color: 'text-blue-500' },
+            63: { desc: 'ฝนตกปานกลาง', icon: 'fa-cloud-rain', color: 'text-blue-600' },
+            65: { desc: 'ฝนตกหนัก', icon: 'fa-cloud-showers-heavy', color: 'text-blue-700' },
+            71: { desc: 'หิมะตกเล็กน้อย', icon: 'fa-snowflake', color: 'text-blue-200' },
+            73: { desc: 'หิมะตกปานกลาง', icon: 'fa-snowflake', color: 'text-blue-300' },
+            75: { desc: 'หิมะตกหนัก', icon: 'fa-snowflake', color: 'text-blue-400' },
+            95: { desc: 'พายุฝนฟ้าคะนอง', icon: 'fa-cloud-bolt', color: 'text-purple-600' },
+            96: { desc: 'พายุฝนฟ้าคะนองและลูกเห็บ', icon: 'fa-cloud-bolt', color: 'text-purple-700' },
+            99: { desc: 'พายุฝนฟ้าคะนองรุนแรง', icon: 'fa-cloud-bolt', color: 'text-purple-800' },
+        };
+
+        // Date formatting helper
+        function formatDate(dateString) {
+            const options = { weekday: 'long', day: 'numeric', month: 'long' };
+            return new Date(dateString).toLocaleDateString('th-TH', options);
+        }
+
+        function getShortWeekday(dateString) {
+            const options = { weekday: 'short' };
+            return new Date(dateString).toLocaleDateString('th-TH', options);
+        }
+
+        // Get weather info object safely
+        function getWeatherInfo(code) {
+            return weatherCodes[code] || { desc: 'ไม่ทราบสภาพอากาศ', icon: 'fa-cloud', color: 'text-gray-500' };
+        }
+
+        // Fetch city coordinates
+        async function getCoordinates(city) {
+            const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=th&format=json`);
+            const data = await res.json();
+            if (!data.results || data.results.length === 0) {
+                throw new Error('ไม่พบข้อมูลของเมืองนี้ โปรดลองพิมพ์ชื่อเมืองหรือจังหวัดให้ถูกต้อง');
+            }
+            return data.results[0];
+        }
+
+        // Fetch weather data
+        async function getWeatherData(lat, lon) {
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('ไม่สามารถดึงข้อมูลสภาพอากาศได้');
+            return await res.json();
+        }
+
+        // Update UI with weather data
+        function updateUI(locationData, weatherData) {
+            // Location & Date
+            document.getElementById('cityName').textContent = locationData.name;
+            document.getElementById('dateInfo').textContent = formatDate(new Date());
+
+            // Current Weather
+            const current = weatherData.current;
+            const wInfo = getWeatherInfo(current.weather_code);
+            
+            document.getElementById('temperature').textContent = Math.round(current.temperature_2m);
+            document.getElementById('weatherDesc').textContent = wInfo.desc;
+            document.getElementById('weatherIcon').innerHTML = `<i class="fa-solid ${wInfo.icon}"></i>`;
+            document.getElementById('weatherIcon').className = `text-7xl drop-shadow-md ${wInfo.color}`;
+
+            // Details
+            document.getElementById('feelsLike').textContent = `${Math.round(current.apparent_temperature)}°C`;
+            document.getElementById('humidity').textContent = `${current.relative_humidity_2m}%`;
+            document.getElementById('windSpeed').textContent = `${Math.round(current.wind_speed_10m)} กม./ชม.`;
+
+            // Daily Forecast
+            const daily = weatherData.daily;
+            forecastContainer.innerHTML = '';
+            
+            // Loop through next 7 days
+            for (let i = 0; i < 7; i++) {
+                const dayDate = daily.time[i];
+                const dayWInfo = getWeatherInfo(daily.weather_code[i]);
+                const maxTemp = Math.round(daily.temperature_2m_max[i]);
+                const minTemp = Math.round(daily.temperature_2m_min[i]);
+                
+                // Show "วันนี้" (Today) for the first item, otherwise short weekday
+                const dayName = i === 0 ? 'วันนี้' : getShortWeekday(dayDate);
+
+                const forecastHtml = `
+                    <div class="min-w-[80px] flex-shrink-0 bg-white/40 rounded-2xl p-3 flex flex-col items-center shadow-sm border border-white/30 hover:bg-white/60 transition-colors cursor-default">
+                        <span class="text-sm font-medium text-gray-800 mb-2">${dayName}</span>
+                        <i class="fa-solid ${dayWInfo.icon} ${dayWInfo.color} text-2xl mb-2"></i>
+                        <div class="flex gap-2 text-sm">
+                            <span class="font-bold text-gray-900">${maxTemp}°</span>
+                            <span class="text-gray-500">${minTemp}°</span>
+                        </div>
+                    </div>
+                `;
+                forecastContainer.insertAdjacentHTML('beforeend', forecastHtml);
+            }
+
+            // Change background based on weather
+            updateBackground(current.weather_code);
+        }
+
+        // Dynamic background
+        function updateBackground(code) {
+            let gradient = '';
+            // Clear / Sunny
+            if (code <= 1) gradient = 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)';
+            // Cloudy
+            else if (code <= 3) gradient = 'linear-gradient(135deg, #8baaaa 0%, #ae8b9c 100%)';
+            // Rain
+            else if (code >= 50 && code <= 65) gradient = 'linear-gradient(135deg, #2b5876 0%, #4e4376 100%)';
+            // Thunderstorm
+            else if (code >= 95) gradient = 'linear-gradient(135deg, #141e30 0%, #243b55 100%)';
+            // Default/Fog
+            else gradient = 'linear-gradient(135deg, #74ebd5 0%, #9face6 100%)';
+
+            document.body.style.background = gradient;
+        }
+
+        // Main Search Function
+        async function searchWeather(city) {
+            weatherContent.classList.add('hidden');
+            errorState.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+            loadingState.classList.add('flex');
+
+            try {
+                const locationData = await getCoordinates(city);
+                const weatherData = await getWeatherData(locationData.latitude, locationData.longitude);
+                
+                updateUI(locationData, weatherData);
+                
+                loadingState.classList.add('hidden');
+                loadingState.classList.remove('flex');
+                weatherContent.classList.remove('hidden');
+            } catch (err) {
+                loadingState.classList.add('hidden');
+                loadingState.classList.remove('flex');
+                errorMessage.textContent = err.message;
+                errorState.classList.remove('hidden');
+                errorState.classList.add('flex');
+            }
+        }
+
+        // Event Listeners
+        searchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const city = cityInput.value.trim();
+            if (city) {
+                searchWeather(city);
+            }
+        });
+
+        // Initialize with default city (Khon Kaen as requested earlier)
+        window.onload = () => {
+            searchWeather('Khon Kaen');
+        };
+
+    </script>
+</body>
+</html>
